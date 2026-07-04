@@ -1,0 +1,4 @@
+# Aligned with pyproject.toml; use: pip install -r requirements.txt
+# Editable install (recommended): pip install -e .
+
+-e .

@@ -1,0 +1,64 @@
+# VetVopros: 2 контейнера — PostgreSQL (pgvector) + приложение (бот + админка в одном образе).
+# Данные БД только в именованном Docker volume `vetvopros_pgdata` (bind mount не используется).
+#
+# Запуск:
+#   docker compose up -d --build
+#
+# Админка: http://<IP_сервера>:8000/ (без TLS, пока для внутренних/тестовых сетей).
+# Секреты — в `.env` (шаблон: deploy/env.docker.example).
+
+name: vetvopros
+
+services:
+  db:
+    image: pgvector/pgvector:pg16-bookworm
+    container_name: vetvopros-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vetvopros}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-vetvopros}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - vetvopros_net
+
+  app:
+    init: true
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vetvopros:local
+    container_name: vetvopros-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vetvopros}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vetvopros}
+      VETVOPROS_CONFIG_INI: /app/config.ini
+      VETVOPROS_ADMIN_HOST: 0.0.0.0
+      # Внутри контейнера всегда 8000 — совпадает с правой частью ports; наружу см. ADMIN_HOST_PORT
+      VETVOPROS_ADMIN_PORT: "8000"
+      VETVOPROS_ADMIN_RELOAD: "false"
+    ports:
+      # На всех интерфейсах хоста: с браузера — http://<публичный_IP>:<порт>/
+      - "${ADMIN_HOST_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - vetvopros_net
+
+volumes:
+  pgdata:
+    name: vetvopros_pgdata
+
+networks:
+  vetvopros_net:
+    name: vetvopros_net

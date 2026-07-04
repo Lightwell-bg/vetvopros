@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Документы — Admin{% endblock %}
+{% block body %}
+<h1>Документы</h1>
+<form method="get" action="/documents" class="row-actions" style="margin-bottom:1rem; gap:0.75rem">
+  <label style="margin:0; display:flex; align-items:center; gap:0.35rem">
+    <span class="muted">Статус</span>
+    <select name="status" style="width:auto; min-width:8rem">
+      <option value="">все</option>
+      {% for s in statuses %}
+      <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label style="margin:0; flex:1; min-width:10rem">
+    <span class="muted">Поиск title/slug</span>
+    <input type="text" name="q" value="{{ search_q }}" placeholder="фрагмент…">
+  </label>
+  <button type="submit" class="btn" style="align-self:flex-end">Фильтр</button>
+</form>
+<table>
+  <thead>
+    <tr>
+      <th>Название</th>
+      <th>Slug</th>
+      <th>Статус</th>
+      <th>Чанки</th>
+      <th>Обновлён</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in documents %}
+    <tr>
+      <td><a href="/documents/{{ d.id }}">{{ d.title }}</a></td>
+      <td class="muted">{{ d.slug }}</td>
+      <td>{{ d.status }}</td>
+      <td class="muted">{{ d.updated_at }}</td>
+      <td><a href="/documents/{{ d.id }}/edit" class="btn btn-secondary" style="padding:0.2rem 0.5rem">Правка</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">Нет документов</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

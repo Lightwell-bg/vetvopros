@@ -1,0 +1,167 @@
+"id","title","slug","body_markdown","status","published_at","updated_at"
+"20134450-d78e-4796-8c57-c56e6b5bed3d","111","11111","# MedVopros — медицинский справочный Telegram AI-бот
+
+Проектирование и реализация бота для русскоязычной аудитории за рубежом: ответы из **RAG** (PostgreSQL + **pgvector**), при необходимости — **LLM**, админка для базы знаний, лимиты и монетизация. Подробная архитектура и ТЗ — в markdown-файлах **`00_project_overview.md` … `12_acceptance_checklist.md`**.
+
+## Документация
+
+| Файл | Содержание |
+|------|------------|
+| [00_project_overview.md](00_project_overview.md) | Цели, аудитория, границы ответственности |
+| [01_system_architecture.md](01_system_architecture.md) | Компоненты и потоки данных |
+| [02_project_structure.md](02_project_structure.md) | Дерево каталогов |
+| [03_database_design.md](03_database_design.md) | Схема БД, pgvector |
+| [04_rag_design.md](04_rag_design.md) | Индексация и поиск |
+| [05_bot_logic.md](05_bot_logic.md) | Сценарии Telegram |
+| [06_admin_panel.md](06_admin_panel.md) | Веб-админка |
+| [07_billing_and_limits.md](07_billing_and_limits.md) | Лимиты и оплата |
+| [08_specialists_and_medical_flows.md](08_specialists_and_medical_flows.md) | Специалисты, анализы, red flags |
+| [09_config_and_env.md](09_config_and_env.md) | `config.ini` и `.env` |
+| [10_mvp_scope.md](10_mvp_scope.md) | Границы MVP |
+| [11_risks_and_open_questions.md](11_risks_and_open_questions.md) | Риски и вопросы |
+| [12_acceptance_checklist.md](12_acceptance_checklist.md) | Приёмка |
+
+Задания для исполнителей: каталог [agents/](agents/).
+
+## Архитектура и обзоры
+
+- Компоненты и потоки данных: [01_system_architecture.md](01_system_architecture.md).
+- Дерево каталогов и слои кода: [02_project_structure.md](02_project_structure.md).
+- **Архитектурный обзор (Agent 01):** [agents/report_agent_01_architect.md](agents/report_agent_01_architect.md) — сверка `01`/`02`, риски, рекомендации и зафиксированные противоречия документации.
+
+## Требования
+
+- Python **3.11+**
+- PostgreSQL с расширением **pgvector**
+- Токен Telegram-бота, ключ API LLM/эмбеддингов (см. `.env.example`)
+- Telegram-фреймворк: **[aiogram](https://docs.aiogram.dev/) 3.x** (зависимость в `pyproject.toml`; реализация хендлеров — [agents/agent_03_telegram_bot.md](agents/agent_03_telegram_bot.md))
+
+### Telegram-бот (aiogram 3.x)
+
+Реализация по [agents/agent_03_telegram_bot.md](agents/agent_03_telegram_bot.md) и [05_bot_logic.md](05_bot_logic.md):
+
+- Точка входа: `src/run_bot.py` — long polling, зависимости в `medvopros/bot/app_factory.py`, хендлеры в `src/medvopros/handlers/`.
+- **Условия использования:** до принятия дисклеймера медицинский диалог не ведётся; при **каждом запуске и остановке** процесса бота в БД сбрасывается `disclaimer_accepted_at` у всех пользователей — после рестарта снова нужен `/start` и согласие.
+- После ответа ИИ показывается inline-меню: «Задать ещё вопрос», «Обратиться к специалисту», «Анализы» (если включено), «Личный кабинет»; в подразделах — «Главное меню».
+- **Специалист:** не выдача контакта, а **релей** в этом боте; в `config.ini` задаётся `telegram_user_id` (и при необходимости username). Отдельные лимиты: `free_specialist_messages_per_user`, `specialist_message_cost`.
+- Разделы доступны командами и **inline-кнопками**. Команда **`/restart`** сбрасывает FSM сценариев (например, «Анализы») и снова показывает меню; reply-клавиатура внизу экрана не используется.
+- Синхронные вызовы БД и сервисов из хендлеров выполняются через **`asyncio.to_thread`**, чтобы не блокировать event loop.
+- Нужны таблицы в PostgreSQL (`users` и др.). Обычно из **корня репозитория** (где `alembic.ini` и `.env` с `DATABASE_URL`):
+
+```bash
+alembic upgrade head
+python src/run_bot.py
+```
+
+- Если миграции не применялись, при **`environment=development`** в `config.ini` бот при старте **сам выполнит** `alembic upgrade head`. Иначе — явно выполните команду выше или задайте `MEDVOPROS_AUTO_MIGRATE=true` в `.env`.
+
+Отчёт по этапу: [agents/report_agent_03_telegram_bot.md](agents/report_agent_03_telegram_bot.md).
+
+Если ранее ставился **pyTelegramBotAPI**, его можно удалить: `pip uninstall pyTelegramBotAPI -y`.
+
+## Виртуальное окружение
+
+**Windows (cmd):**
+
+```bat
+cd /d D:\1APACER\Help\1Python\20260404MedVopros\medvopros
+python -m venv .venv
+.venv\Scripts\activate
+pip install -U pip
+pip install -r requirements.txt
+```
+
+**Linux / macOS / Git Bash:**
+
+```bash
+cd /path/to/medvopros
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -r requirements.txt
+```
+
+Команда `pip install -r requirements.txt` выполняет **editable**-установку пакета из `pyproject.toml` (`pip install -e .`), чтобы импорт `medvopros` работал из каталога `src/`.
+
+После активации в приглашении оболочки появится префикс `(.venv)`.
+
+**Без установки в venv** (временно): из корня репозитория можно задать `PYTHONPATH=src` (Linux/macOS/Git Bash) или `set PYTHONPATH=src` (cmd) перед запуском скриптов.
+
+## Конфигурация
+
+1. Скопируйте [.env.example](.env.example) в **`.env`** и заполните секреты.
+2. Скопируйте или отредактируйте **`config.ini`** (шаблон без секретов; пути к `texts/`, `prompts/`, пороги RAG). Файл `config.ini` описан в [09_config_and_env.md](09_config_and_env.md).
+
+Критические секреты хранятся **только** в `.env` (не коммитить).
+
+## Внешние сервисы и API
+
+| Сервис | Назначение | Переменные / конфиг |
+|--------|------------|---------------------|
+| **Telegram Bot API** | Приём/отправка сообщений | `TELEGRAM_BOT_TOKEN` в `.env` |
+| **OpenAI-compatible API** | Чат и эмбеддинги | `LLM_API_KEY` или `OPENAI_API_KEY`, опционально `LLM_BASE_URL`; в `config.ini` секция `[llm]`: `chat_model`, `request_timeout_seconds`, `max_output_tokens`, `max_retries`, `retry_backoff_seconds`, `reduce_log_detail` (в production рекомендуется `true`, чтобы в логах не писались превью полных промптов и ответов). Реализация: `src/medvopros/services/llm_service.py` (`LlmService`). |
+| **PostgreSQL** | Данные, векторы pgvector | `DATABASE_URL` в `.env` |
+
+Получение токена бота: [@BotFather](https://t.me/BotFather) в Telegram. Ключ LLM выдаётся в кабинете выбранного провайдера; при использовании прокси укажите `LLM_BASE_URL` согласно документации провайдера.
+
+Дополнительные переменные окружения (описание в [.env.example](.env.example)):
+
+| Переменная | Назначение |
+|------------|------------|
+| `MEDVOPROS_CONFIG_INI` | Явный путь к `config.ini` |
+| `MEDVOPROS_ADMIN_HOST` | Хост uvicorn для `run_admin.py` (по умолчанию `0.0.0.0`) |
+| `MEDVOPROS_ADMIN_PORT` | Порт (по умолчанию `8000`) |
+| `MEDVOPROS_ADMIN_RELOAD` | `true` / `1` — режим `--reload` |
+| `ADMIN_SESSION_SECRET` | Секрет подписи cookie-сессии админки (не оставляйте значение по умолчанию из примера) |
+| `ADMIN_USERNAME` | Логин админки (по умолчанию в коде: `admin`, если переменная не задана) |
+| `ADMIN_PASSWORD` | Пароль админки (обязателен для `run_admin.py`, задаётся в `.env`) |
+| `MEDVOPROS_AUTO_MIGRATE` | `true` / `false` — принудительно применять Alembic при старте бота, если нет таблицы `users` (если не задано, при `environment=development` в `config.ini` миграции применяются автоматически) |
+
+## База данных (модели, миграции, репозитории)
+
+- Схема: [03_database_design.md](03_database_design.md). Реализация: `src/medvopros/db/models.py`, миграции в `alembic/versions/` (включая расширение **pgvector** и таблицы `documents`, `document_chunks`, биллинг, `audit_log`).
+- Размерность столбца `document_chunks.embedding` задаётся в миграции и должна совпадать с **`[rag] embedding_dimensions`** в `config.ini` и с константой `medvopros.db.constants.EMBEDDING_DIMENSIONS` (сейчас **1536**). Смена модели эмбеддингов — отдельная миграция и переиндексация.
+- Репозитории: `src/medvopros/repositories/` (`UserRepository`, `MessageRepository`, `DocumentRepository`, `ChunkRepository`, `BillingRepository`, `AuditRepository`, `RelayRepository`). Списание лимитов и бизнес-правила — в сервисном слое, не в репозиториях.
+- На соединениях SQLAlchemy регистрируется тип pgvector для **psycopg3** (`medvopros.db.session.create_engine_and_session_factory`).
+
+**Тесты БД (интеграционные):** нужны PostgreSQL с установленным расширением `vector`, переменная `DATABASE_URL` в `.env`. Фикстура поднимает миграции до `head` и проверяет CRUD. Зависимость **pytest** — из опциональной группы разработки: `pip install -e "".[dev]""` (или `pip install pytest`).
+
+```bash
+pytest tests/test_repositories_db.py -v
+```
+
+Отчёт этапа: [agents/report_agent_04_database.md](agents/report_agent_04_database.md).
+
+## RAG (чанки, эмбеддинги, поиск)
+
+- Код: `src/medvopros/rag/` — `chunking.py`, `embeddings.py`, `ingest.py`, `search.py`; фасад **`medvopros.services.rag_service.RagService`** (`ChunkHit`, `default_embedder`).
+- **`retrieve(query)`** — эмбеддинг запроса, pgvector top-k, фильтр по **`min_similarity`** и обрезка до **`max_context_chunks`** из `config.ini` секции `[rag]`. Ошибка API эмбеддингов → пустой список, без падения процесса.
+- **`message_metadata(hits)`** — словарь для последующей записи в `messages.metadata`: `chunk_ids`, `similarities`, `document_slugs`, `model`, `rag_threshold_used` (см. [04_rag_design.md](04_rag_design.md)).
+- **Индексация:** `reindex_document(id)` и `reindex_all_published()` (постранично, возвращает `(успехи, ошибки)`); черновики и снятые с публикации документы **удаляют чанки** и не участвуют в поиске. Вызовы из админки — ниже и в [agents/agent_07_admin_panel.md](agents/agent_07_admin_panel.md).
+- Эмбеддинги: тот же **`LLM_API_KEY`** / **`OPENAI_API_KEY`** и при необходимости **`LLM_BASE_URL`**, модель — **`[rag] embedding_model`**; размерность вектора должна совпадать с **`embedding_dimensions`** и миграцией pgvector.
+
+Отчёт этапа: [agents/report_agent_05_rag.md](agents/report_agent_05_rag.md).
+","published","2026-04-06 18:15:07.245679+03","2026-04-06 18:15:07.252039+03"
+"93c699a2-befb-42db-9f19-5b429ee90d8f","holera","holera","Холера — острое кишечное инфекционное заболевание, вызываемое бактерией Vibrio cholerae. Основные симптомы: внезапная, обильная, безболезненная диарея (стул по типу «рисового отвара») и рвота, приводящие к стремительному обезвоживанию, судорогам и падению давления. Лечение заключается в немедленной регидратации (восстановлении жидкости) и применении антибиотиков, что снижает смертность до менее чем 1%. 
+Инвитро
+Инвитро
+ +4
+Основные симптомы холеры:
+Диарея: Часто водянистая, мутно-белая (напоминает рисовый отвар), без запаха фекалий, часто без позывов.
+Рвота: Внезапная, «фонтаном», обычно следует за диареей.
+Обезвоживание: Мучительная жажда, сухость во рту, западание глаз, осиплость голоса, кожа теряет эластичность.
+Судороги: Мышечные спазмы (особенно в икрах) из-за потери электролитов.
+Температура: Может быть нормальной или пониженной (до 
+
+), реже — небольшая лихорадка.
+Сердечно-сосудистые нарушения: Падение артериального давления, нитевидный пульс, синюшность губ и кожи. 
+АО ""Медицина""
+АО ""Медицина""
+ +7
+Методы лечения холеры:
+Регидратация (самое главное): Восполнение потери жидкости и электролитов. При легкой форме — растворы для пероральной регидратации (например, Регидрон), при тяжелой — внутривенное введение растворов (таких как «Хлосоль», «Ацесоль» или лактат Рингера).
+Антибиотикотерапия: Применяется для сокращения продолжительности диареи и уменьшения выделения бактерий (обычно доксициклин, азитромицин или ципрофлоксацин).
+Диета: После прекращения рвоты рекомендуется раннее питание для поддержания сил. 
+Поликлиника.ру
+Поликлиника.ру
+ +2","published","2026-04-06 18:13:10.805489+03","2026-04-06 18:13:10.80795+03"

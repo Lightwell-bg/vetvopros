@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Статус — Admin{% endblock %}
+{% block body %}
+<h1>Статус системы</h1>
+<ul class="muted" style="list-style:none;padding:0">
+  <li>Версия пакета: <strong style="color:var(--text)">{{ app_ver }}</strong></li>
+  <li>PostgreSQL: {% if db_ok %}<span style="color:var(--ok)">OK</span>{% else %}<span class="error">недоступна</span>{% endif %}</li>
+  <li>Расширение pgvector: {% if vector_ok %}<span style="color:var(--ok)">включено</span>{% else %}<span class="error">нет или БД недоступна</span>{% endif %}</li>
+  <li>Автоиндексация при публикации (config.ini): {% if auto_index_on_publish %}да{% else %}нет{% endif %}</li>
+</ul>
+<h2>Документы по статусам</h2>
+<ul>
+  {% for st, n in doc_counts.items() %}
+  <li><code>{{ st }}</code>: {{ n }}</li>
+  {% else %}
+  <li class="muted">нет данных</li>
+  {% endfor %}
+</ul>
+<p>Всего чанков в БД: <strong>{{ chunk_total }}</strong></p>
+<h2>Последняя операция индексации (из audit)</h2>
+{% if last_index_job %}
+<p class="muted">{{ last_index_job.created_at }} — <code>{{ last_index_job.event_type }}</code></p>
+<pre style="background:var(--card);padding:0.75rem;border-radius:4px;overflow:auto;font-size:0.8rem">{{ last_index_job.details | pretty_json }}</pre>
+{% else %}
+<p class="muted">Записей пока нет</p>
+{% endif %}
+<h2>Переиндексировать все опубликованные</h2>
+<form method="post" action="/status/reindex-all" onsubmit="return confirm('Переиндексировать все опубликованные документы?');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label class="row-actions" style="align-items:center">
+    <input type="checkbox" name="confirm" value="yes" required>
+    <span>Подтверждаю</span>
+  </label>
+  <p style="margin-top:0.75rem">
+    <button type="submit" class="btn">Переиндексировать всё</button>
+  </p>
+</form>
+{% endblock %}

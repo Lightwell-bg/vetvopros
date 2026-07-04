@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Audit — Admin{% endblock %}
+{% block body %}
+<h1>Журнал audit_log</h1>
+<form method="get" action="/audit" class="row-actions" style="margin-bottom:1rem">
+  <label style="margin:0">
+    <span class="muted">Тип события (точное совпадение)</span>
+    <input type="text" name="event_type" value="{{ filter_event }}" placeholder="например document_saved" style="min-width:16rem">
+  </label>
+  <button type="submit" class="btn" style="align-self:flex-end">Фильтр</button>
+  <a href="/audit" class="btn btn-secondary" style="align-self:flex-end">Сброс</a>
+</form>
+<table>
+  <thead>
+    <tr>
+      <th>Время</th>
+      <th>Тип</th>
+      <th>Детали</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="muted" style="white-space:nowrap">{{ r.created_at }}</td>
+      <td><code>{{ r.event_type }}</code></td>
+      <td><pre style="margin:0;font-size:0.75rem;white-space:pre-wrap;max-width:36rem">{{ r.details | pretty_json }}</pre></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="muted">Нет записей</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

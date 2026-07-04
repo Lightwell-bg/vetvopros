@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{% if doc %}Правка{% else %}Новый документ{% endif %} — Admin{% endblock %}
+{% block body %}
+{% set title_val = form.title if form else (doc.title if doc else '') %}
+{% set slug_val = form.slug if form else (doc.slug if doc else '') %}
+{% set body_val = form.body_markdown if form else (doc.body_markdown if doc else '') %}
+{% set status_val = form.status if form else (doc.status if doc else 'draft') %}
+<h1>{% if doc %}Правка документа{% else %}Новый документ{% endif %}</h1>
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+{% if doc %}
+<p class="muted" style="margin-bottom:1rem">
+  Чанков в индексе: <strong>{{ chunk_count | default(0) }}</strong>.
+  {% if doc.status != 'published' %}
+  У статусов <code>draft</code> и <code>archived</code> чанки не создаются (документ не участвует в поиске).
+  {% elif (chunk_count | default(0)) == 0 %}
+  Для опубликованного документа нажмите «Индексировать» или сохраните снова при включённом <code>auto_index_on_publish</code> в <code>config.ini</code>. При ошибке API эмбеддингов смотрите <a href="/audit?event_type=document_index_failed">audit</a>.
+  {% endif %}
+</p>
+{% endif %}
+<form method="post" action="{% if doc %}/documents/{{ doc.id }}/edit{% else %}/documents/new{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="title">Заголовок</label>
+  <input type="text" id="title" name="title" required maxlength="512" value="{{ title_val }}">
+  <label for="slug">Slug (латиница, дефисы)</label>
+  <input type="text" id="slug" name="slug" required value="{{ slug_val }}">
+  <label for="status">Статус</label>
+  <select id="status" name="status">
+    {% for s in statuses %}
+    <option value="{{ s }}" {% if status_val == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <label for="body_markdown">Текст (Markdown)</label>
+  <textarea id="body_markdown" name="body_markdown" required>{{ body_val }}</textarea>
+  <p class="row-actions" style="margin-top:1rem">
+    <button type="submit" class="btn">Сохранить</button>
+    {% if doc %}
+    <a href="/documents/{{ doc.id }}" class="btn btn-secondary">Просмотр</a>
+    <a href="/documents" class="btn btn-secondary">К списку</a>
+    {% endif %}
+  </p>
+</form>
+{% if doc %}
+<hr style="border-color:#2a3545;margin:1.5rem 0">
+<h2>Действия</h2>
+<div class="row-actions">
+  {% if doc.status != 'published' %}
+  <form method="post" action="/documents/{{ doc.id }}/publish">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn">Опубликовать</button>
+  </form>
+  {% else %}
+  <form method="post" action="/documents/{{ doc.id }}/unpublish">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn btn-secondary">Снять с публикации</button>
+  </form>
+  <form method="post" action="/documents/{{ doc.id }}/index">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn">Индексировать</button>
+  </form>
+  {% endif %}
+  <form method="post" action="/documents/{{ doc.id }}/delete" onsubmit="return confirm('Удалить документ и чанки?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn btn-danger">Удалить</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

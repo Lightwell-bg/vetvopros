@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VetVopros Admin{% endblock %}</title>
+  <style>
+    :root { --bg: #0f1419; --card: #1a2332; --text: #e7ecf3; --muted: #8b9bb4; --accent: #3d8bfd; --danger: #e85d6c; --ok: #3ecf8e; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.5; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header { background: var(--card); padding: 0.75rem 1.25rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid #2a3545; }
+    header nav { display: flex; gap: 1rem; flex-wrap: wrap; }
+    main { max-width: 960px; margin: 0 auto; padding: 1.25rem; }
+    .flash { background: #243044; border-left: 4px solid var(--accent); padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .error { color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #2a3545; }
+    th { color: var(--muted); font-weight: 600; }
+    tr:hover td { background: #151d28; }
+    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
+    .btn:hover { filter: brightness(1.1); }
+    .btn-danger { background: var(--danger); }
+    .btn-secondary { background: #3d4f66; }
+    input[type=text], input[type=password], textarea, select { width: 100%; max-width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid #2a3545; background: #151d28; color: var(--text); }
+    textarea { min-height: 220px; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    label { display: block; margin-top: 0.75rem; margin-bottom: 0.25rem; color: var(--muted); font-size: 0.85rem; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    .prose { background: var(--card); padding: 1rem; border-radius: 6px; }
+    .prose pre { overflow-x: auto; }
+    h1 { font-size: 1.35rem; margin: 0 0 1rem; }
+    h2 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; color: var(--muted); }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% if show_nav | default(false) %}
+  <header>
+    <strong>VetVopros</strong>
+    <nav>
+      <a href="/documents">Документы</a>
+      <a href="/documents/new">Создать</a>
+      <a href="/status">Статус</a>
+      <a href="/audit">Audit</a>
+      <a href="/health" target="_blank" rel="noopener">Health (API)</a>
+    </nav>
+    <form action="/logout" method="post" style="margin-left:auto">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-secondary">Выход</button>
+    </form>
+  </header>
+  {% endif %}
+  <main>
+    {% if flash %}
+    <div class="flash">{{ flash }}</div>
+    {% endif %}
+    {% block body %}{% endblock %}
+  </main>
+</body>
+</html>
