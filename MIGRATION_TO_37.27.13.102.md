@@ -37,14 +37,17 @@ git push origin main
 ```bash
 cd /opt/vetvopros
 docker exec vetvopros-db pg_dump -U vetvopros -d vetvopros -F c -f /tmp/vetvopros_backup.dump
-docker cp vetvopros-db:/tmp/vetvopros_backup.dump ./vetvopros_backup.dump
+docker cp vetvopros-db:/tmp/vetvopros_backup.dump ~/vetvopros_backup.dump
+ls -la ~/vetvopros_backup.dump
 ```
 
 (логин/БД замените, если на старом сервере другие `POSTGRES_USER`/`POSTGRES_DB` — смотрите `.env` на старом сервере.)
 
 Формат `-F c` (custom) — компактный и восстанавливается через `pg_restore`, годится для переноса на pgvector-образ той же версии.
 
-Файл `./vetvopros_backup.dump` появится в `/opt/vetvopros` на старом сервере — его и заберёте через WinSCP.
+**Важно:** копируйте именно в домашний каталог (`~`), а не в `/opt/vetvopros` — если `/opt/vetvopros` принадлежит `root` (типично для каталогов, разворачиваемых через `sudo`/CI), обычный пользователь не сможет туда записать файл: `docker cp` завершится без ошибки на стадии стриминга, но сам файл не создастся. Проверьте `ls -la ~/vetvopros_backup.dump` — размер должен быть не нулевым.
+
+Файл `~/vetvopros_backup.dump` (например, `/home/vlad/vetvopros_backup.dump`) появится в домашнем каталоге на старом сервере — его и заберёте через WinSCP.
 
 ---
 
@@ -52,9 +55,11 @@ docker cp vetvopros-db:/tmp/vetvopros_backup.dump ./vetvopros_backup.dump
 
 В WinSCP подключитесь к старому серверу и скачайте к себе на диск:
 
-- `/opt/vetvopros/vetvopros_backup.dump`
+- `~/vetvopros_backup.dump` (домашний каталог, например `/home/vlad/vetvopros_backup.dump`)
 - `/opt/vetvopros/.env` (реальные секреты — токен бота, ключ LLM, пароли)
 - `/opt/vetvopros/config.ini` (если правился вручную на проде и отличается от того, что в git)
+
+Если WinSCP не даёт зайти в `/opt/vetvopros` для чтения `.env`/`config.ini` из-за прав — прочитайте их через SSH и скопируйте содержимое себе, либо на старом сервере временно `sudo cp .env config.ini ~/ && sudo chown vlad:vlad ~/.env ~/config.ini`, заберите через WinSCP, затем удалите копии из `~`.
 
 Больше ничего переносить не нужно — весь код придёт через `git clone`.
 
