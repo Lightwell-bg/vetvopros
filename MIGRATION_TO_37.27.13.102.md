@@ -69,14 +69,15 @@ ls -la ~/vetvopros_backup.dump
 
 ```bash
 ssh <ваш_пользователь>@37.27.13.102
-mkdir -p /opt
+sudo mkdir -p /opt
+sudo chown "$USER":"$USER" /opt
 cd /opt
-git clone https://<ВАШ_GITHUB_ТОКЕН>@github.com/<владелец>/<репозиторий>.git vetvopros
+git clone https://<ВАШ_GITHUB_ТОКЕН>@github.com/Lightwell-bg/vetvopros.git vetvopros
 cd /opt/vetvopros
 ```
 
 (Не оставляйте токен в истории команд надолго — после клонирования можно переключить remote на SSH-ключ или на HTTPS без токена в URL:
-`git remote set-url origin https://github.com/<владелец>/<репозиторий>.git`, а креды для будущих `git pull` настроить через `git credential store`/SSH-ключ.)
+`git remote set-url origin https://github.com/Lightwell-bg/vetvopros.git`, а креды для будущих `git pull` настроить через `git credential store`/SSH-ключ.)
 
 ---
 
@@ -141,15 +142,34 @@ docker compose logs --tail=80 app
 
 ## Шаг 9. Открыть порт админки в фаерволе нового сервера
 
+**Сначала проверьте фактический порт на хосте** — он берётся из `ADMIN_HOST_PORT` в `.env` и может отличаться от 8000 (если в `.env` этого сервера стоит другое значение):
+
 ```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 8000/tcp
-sudo ufw reload
+docker compose ps
 ```
 
-Плюс правило в панели хостинга (firewall провайдера), если используется.
+В колонке `PORTS` будет что-то вроде `0.0.0.0:8081->8000/tcp` — значит снаружи сайт слушает **8081**, а не 8000. Дальше везде подставляйте именно этот порт.
 
-Откройте в браузере: `http://37.27.13.102:8000/` — должна открыться форма входа админки с теми же логином/паролем, что был на старом сервере (они пришли вместе с `.env`).
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 8081/tcp
+sudo ufw reload
+sudo ufw status
+```
+
+(замените `8081` на ваш реальный порт из `docker compose ps`.)
+
+Плюс правило в панели хостинга (Cloud Firewall провайдера — у Hetzner/DigitalOcean и т.п. это отдельный уровень фильтрации поверх UFW), если используется: разрешите входящий TCP на тот же порт.
+
+Быстрая проверка **локально на сервере** (не зависит от фаервола) — если это `200`/редирект, контейнер работает и проблема именно в фаерволе/порте:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/
+```
+
+Откройте в браузере: `http://37.27.13.102:8081/` (порт — из `docker compose ps`) — должна открыться форма входа админки с теми же логином/паролем, что был на старом сервере (они пришли вместе с `.env`).
+
+Если хотите вернуть стандартный порт 8000: поправьте `ADMIN_HOST_PORT=8000` в `.env` и выполните `docker compose up -d --force-recreate app`.
 
 ---
 
